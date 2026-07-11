@@ -17,11 +17,11 @@
       card: "盾兵",
       color: "#52759f",
       dark: "#2f5278",
-      range: 88,
-      damage: 2,
-      rate: 0.38,
-      slow: 0.48,
-      slowTime: 1.15,
+      range: 96,
+      damage: 3,
+      rate: 0.34,
+      slow: 0.38,
+      slowTime: 1.5,
       cost: 1,
       hint: "减速",
     },
@@ -176,9 +176,9 @@
       },
       messageTime: 0,
     });
-    drawCard("bow");
-    drawCard("spear");
     drawCard("shield");
+    drawCard("spear");
+    drawCard("bow");
     startWave(1);
     els.pauseBtn.textContent = "Ⅱ";
     if (els.resultDialog.open) els.resultDialog.close();
@@ -438,7 +438,7 @@
       setMessage("已满级", `${TOWERS[tower.type].label} 已经升到 3 级。`);
       return false;
     }
-    const cost = 3 + level * 2;
+    const cost = 3 + level;
     if (state.gold < cost) {
       setMessage("军资不足", `升级需要 ${cost} 军资，击退敌兵可以获得军资。`);
       return false;
