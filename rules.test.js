@@ -6,7 +6,7 @@ const CONFIG = {
 };
 
 const TOWERS = {
-  shield: { range: 88, damage: 2, rate: 0.38, slow: 0.48, slowTime: 1.15 },
+  shield: { range: 96, damage: 3, rate: 0.34, slow: 0.38, slowTime: 1.5 },
   spear: { range: 92, damage: 7, rate: 0.95 },
   bow: { range: 142, damage: 4, rate: 0.48 },
 };
@@ -22,7 +22,7 @@ function createState() {
     baseHp: CONFIG.baseHp,
     wave: 1,
     gold: 4,
-    hand: [{ type: "bow" }, { type: "spear" }, { type: "shield" }],
+    hand: [{ type: "shield" }, { type: "spear" }, { type: "bow" }],
     towers: [],
     enemies: [],
   };
@@ -46,7 +46,7 @@ function towerStats(tower) {
 }
 
 function upgradeTower(state, tower) {
-  const cost = 3 + tower.level * 2;
+  const cost = 3 + tower.level;
   if (state.gold < cost) return false;
   state.gold -= cost;
   tower.level += 1;
@@ -118,7 +118,7 @@ assert.equal(state.baseHp, 10, "敌人到达城门应扣血");
 
 const slowTarget = { slowFactor: 1, slowTimer: 0 };
 applyShieldSlow(slowTarget);
-assert.equal(slowTarget.slowFactor, 0.48, "盾塔命中后应降低敌人速度");
+assert.equal(slowTarget.slowFactor, 0.38, "盾塔命中后应降低敌人速度");
 assert.equal(slowTarget.slowTimer > 0, true, "盾塔减速应持续一段时间");
 
 const tower = state.towers[0];
@@ -132,4 +132,4 @@ assert.equal(waveList(1).includes("brute"), false, "第一波不应出现重兵"
 assert.equal(waveList(3).includes("brute"), true, "第三波开始应出现重兵");
 assert.equal(CONFIG.maxWave, 6, "v0.4 应有明确可通关波数");
 
-console.log("rules.test.js: v0.4A tower defense checks passed");
+console.log("rules.test.js: v0.4B tower defense checks passed");
