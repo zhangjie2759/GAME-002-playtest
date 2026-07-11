@@ -7,6 +7,8 @@
     handMax: 3,
     drawEvery: 2.2,
     waveBreak: 2.8,
+    startGold: 4,
+    skillCooldown: 10,
   };
 
   const TOWERS = {
@@ -15,11 +17,13 @@
       card: "盾兵",
       color: "#52759f",
       dark: "#2f5278",
-      range: 72,
-      damage: 5,
-      rate: 0.75,
+      range: 88,
+      damage: 2,
+      rate: 0.38,
+      slow: 0.48,
+      slowTime: 1.15,
       cost: 1,
-      hint: "近防",
+      hint: "减速",
     },
     spear: {
       label: "枪塔",
@@ -61,6 +65,8 @@
     nextWaveTimer: 0,
     spawnQueue: [],
     spawnTimer: 0,
+    gold: CONFIG.startGold,
+    skillTimer: 0,
     paused: false,
     ended: false,
     hand: [],
@@ -144,6 +150,8 @@
       nextWaveTimer: 0,
       spawnQueue: [],
       spawnTimer: 0.7,
+      gold: CONFIG.startGold,
+      skillTimer: 0,
       paused: false,
       ended: false,
       hand: [],
@@ -216,18 +224,19 @@
       path,
       pathLength: pathLength(path),
       slots: [
-        { id: "s1", x: 91, y: 94 },
-        { id: "s2", x: 304, y: 126 },
-        { id: "s3", x: 202, y: 188 },
-        { id: "s4", x: 82, y: 328 },
-        { id: "s5", x: 302, y: 454 },
-        { id: "s6", x: 86, y: 458 },
+        { id: "s1", x: 116, y: 118 },
+        { id: "s2", x: 220, y: 158 },
+        { id: "s3", x: 72, y: 228 },
+        { id: "s4", x: 314, y: 338 },
+        { id: "s5", x: 226, y: 442 },
+        { id: "s6", x: 93, y: 472 },
       ],
       cards: [
         { x: 18, y: 552, w: 112, h: 74 },
         { x: 139, y: 552, w: 112, h: 74 },
         { x: 260, y: 552, w: 112, h: 74 },
       ],
+      skill: { x: 278, y: 14, w: 82, h: 34 },
       gate: { x: 195, y: 32 },
       base: { x: 195, y: 520 },
     };
@@ -246,6 +255,7 @@
     }
 
     updateSpawning(dt);
+    state.skillTimer = Math.max(0, state.skillTimer - dt);
     updateEnemies(dt);
     updateTowers(dt);
     updateShots(dt);
@@ -291,13 +301,17 @@
       x: p.x,
       y: p.y,
       wobble: Math.random() * Math.PI,
+      slowFactor: 1,
+      slowTimer: 0,
     });
   }
 
   function updateEnemies(dt) {
     for (const enemy of state.enemies) {
       const data = ENEMIES[enemy.type];
-      enemy.progress += (data.speed * dt) / layout.pathLength;
+      enemy.slowTimer = Math.max(0, enemy.slowTimer - dt);
+      enemy.slowFactor = enemy.slowTimer > 0 ? enemy.slowFactor : 1;
+      enemy.progress += (data.speed * enemy.slowFactor * dt) / layout.pathLength;
       const p = pointAt(layout.path, enemy.progress);
       enemy.x = p.x;
       enemy.y = p.y;
@@ -320,11 +334,15 @@
       tower.cooldown -= dt;
       if (tower.cooldown > 0) continue;
 
-      const data = TOWERS[tower.type];
+      const data = towerStats(tower);
       const target = pickTarget(tower, data.range);
       if (!target) continue;
 
       target.hp -= data.damage;
+      if (data.slow) {
+        target.slowFactor = Math.min(target.slowFactor, data.slow);
+        target.slowTimer = Math.max(target.slowTimer, data.slowTime);
+      }
       tower.cooldown = data.rate;
       state.shots.push({
         x: tower.x,
@@ -336,7 +354,10 @@
         duration: tower.type === "bow" ? 0.18 : 0.12,
       });
       if (target.hp <= 0) {
+        state.gold += target.type === "brute" ? 2 : 1;
         state.floaters.push({ x: target.x, y: target.y, text: "击退", t: 0, color: "#fff8ea" });
+      } else if (data.slow) {
+        state.floaters.push({ x: target.x, y: target.y, text: "减速", t: 0, color: "#dbe8ff" });
       }
     }
   }
@@ -392,7 +413,58 @@
       x: slot.x,
       y: slot.y,
       cooldown: 0.2,
+      level: 1,
     });
+  }
+
+  function towerStats(tower) {
+    const base = TOWERS[tower.type];
+    const level = tower.level || 1;
+    return {
+      ...base,
+      range: base.range + (level - 1) * 10,
+      damage: Math.round(base.damage * (1 + (level - 1) * 0.45)),
+      rate: Math.max(0.26, base.rate * Math.pow(0.9, level - 1)),
+    };
+  }
+
+  function towerAtPoint(x, y) {
+    return state.towers.find((tower) => Math.hypot(tower.x - x, tower.y - y) <= 28);
+  }
+
+  function upgradeTower(tower) {
+    const level = tower.level || 1;
+    if (level >= 3) {
+      setMessage("已满级", `${TOWERS[tower.type].label} 已经升到 3 级。`);
+      return false;
+    }
+    const cost = 3 + level * 2;
+    if (state.gold < cost) {
+      setMessage("军资不足", `升级需要 ${cost} 军资，击退敌兵可以获得军资。`);
+      return false;
+    }
+    state.gold -= cost;
+    tower.level = level + 1;
+    tower.cooldown = 0;
+    state.floaters.push({ x: tower.x, y: tower.y - 18, text: `升 ${tower.level}`, t: 0, color: "#fff1bf" });
+    setMessage("塔已升级", `${TOWERS[tower.type].label} 升到 ${tower.level} 级，火力和射程提升。`);
+    return true;
+  }
+
+  function useSkill() {
+    if (state.skillTimer > 0) {
+      setMessage("齐射冷却", `${Math.ceil(state.skillTimer)} 秒后可以再次齐射。`);
+      return false;
+    }
+    if (!state.towers.length) {
+      setMessage("还没有塔", "先把塔牌拖到高地，再使用齐射。");
+      return false;
+    }
+    for (const tower of state.towers) tower.cooldown = 0;
+    state.skillTimer = CONFIG.skillCooldown;
+    state.floaters.push({ x: 320, y: 52, text: "齐射", t: 0, color: "#fff1bf" });
+    setMessage("齐射号令", "所有塔立刻准备开火，用来救急或抢清怪。");
+    return true;
   }
 
   function onPointerDown(event) {
@@ -406,6 +478,19 @@
     state.pointer.y = point.y;
     state.pointer.startX = point.x;
     state.pointer.startY = point.y;
+
+    if (rectContains(layout.skill, point.x, point.y)) {
+      useSkill();
+      state.pointer.active = false;
+      return;
+    }
+
+    const tower = towerAtPoint(point.x, point.y);
+    if (tower) {
+      upgradeTower(tower);
+      state.pointer.active = false;
+      return;
+    }
 
     if (cardIndex >= 0) {
       els.canvas.setPointerCapture(event.pointerId);
@@ -513,7 +598,7 @@
     els.enemyHp.textContent = state.spawnQueue.length + state.enemies.length;
     els.playerHp.textContent = state.baseHp;
     els.wave.textContent = `${state.wave}/${CONFIG.maxWave}`;
-    els.timer.textContent = Math.max(0, Math.ceil(CONFIG.matchSeconds ? CONFIG.matchSeconds - state.elapsed : state.elapsed));
+    els.timer.textContent = state.gold;
     els.messageTitle.textContent = state.message.title;
     els.messageText.textContent = state.message.text;
   }
@@ -539,6 +624,7 @@
     drawPath();
     drawSlots();
     drawCastles();
+    drawSkillButton();
     drawTowers();
     drawEnemies();
     drawShots();
@@ -630,10 +716,10 @@
   }
 
   function drawTowers() {
-    for (const tower of state.towers) drawTower(tower.x, tower.y, tower.type);
+    for (const tower of state.towers) drawTower(tower.x, tower.y, tower.type, tower.level || 1);
   }
 
-  function drawTower(x, y, type) {
+  function drawTower(x, y, type, level) {
     const data = TOWERS[type];
     ctx.save();
     ctx.translate(x, y);
@@ -673,13 +759,47 @@
       ctx.stroke();
     }
     ctx.restore();
+    ctx.fillStyle = "#fff8ea";
+    ctx.strokeStyle = "rgba(35, 48, 41, 0.65)";
+    ctx.lineWidth = 2;
+    ctx.font = "800 10px Microsoft YaHei, sans-serif";
+    ctx.textAlign = "center";
+    ctx.strokeText(`Lv${level}`, x, y + 28);
+    ctx.fillText(`Lv${level}`, x, y + 28);
+  }
+
+  function drawSkillButton() {
+    const rect = layout.skill;
+    const ready = state.skillTimer <= 0;
+    ctx.fillStyle = ready ? "rgba(255, 248, 234, 0.95)" : "rgba(235, 228, 210, 0.82)";
+    roundedRect(rect.x, rect.y, rect.w, rect.h, 8);
+    ctx.fill();
+    ctx.strokeStyle = ready ? "#285940" : "rgba(102, 115, 109, 0.55)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = ready ? "#285940" : "#66736d";
+    ctx.font = "800 14px Microsoft YaHei, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(ready ? "齐射" : `${Math.ceil(state.skillTimer)}s`, rect.x + rect.w / 2, rect.y + 22);
   }
 
   function drawEnemies() {
     for (const enemy of [...state.enemies].sort((a, b) => a.y - b.y)) {
+      if (enemy.slowTimer > 0) drawSlowRing(enemy.x, enemy.y);
       drawEnemy(enemy.x + Math.sin(enemy.wobble) * 2, enemy.y, enemy.type);
       drawHpBar(enemy.x, enemy.y + 16, enemy.hp / enemy.maxHp);
     }
+  }
+
+  function drawSlowRing(x, y) {
+    ctx.save();
+    ctx.strokeStyle = "rgba(88, 125, 181, 0.72)";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    ctx.arc(x, y + 3, 17, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
   }
 
   function drawEnemy(x, y, type) {
