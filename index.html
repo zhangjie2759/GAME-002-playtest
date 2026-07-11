@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>GAME-002｜攻防战 H5 v0.4</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="phone-shell" aria-label="攻防战 H5 v0.4">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">GAME-002 H5 v0.4</p>
+        <h1>攻防战</h1>
+      </div>
+      <div class="header-actions">
+        <button id="pauseBtn" type="button" class="icon-button" aria-label="暂停">Ⅱ</button>
+        <button id="restartBtn" type="button" class="icon-button" aria-label="重开">↻</button>
+      </div>
+    </header>
+
+    <section class="status-strip" aria-label="对局状态">
+      <div class="enemy">
+        <span>对方</span>
+        <strong id="enemyHp">12</strong>
+      </div>
+      <div>
+        <span>波次</span>
+        <strong id="wave">1</strong>
+      </div>
+      <div>
+        <span>时间</span>
+        <strong id="timer">90</strong>
+      </div>
+      <div class="self">
+        <span>我方</span>
+        <strong id="playerHp">12</strong>
+      </div>
+    </section>
+
+    <section class="canvas-wrap" aria-label="基础塔防战场">
+      <canvas id="battleCanvas" width="390" height="640" aria-label="攻防战基础塔防战场"></canvas>
+    </section>
+
+    <section class="message-bar" aria-live="polite">
+      <strong id="messageTitle">守城开始</strong>
+      <span id="messageText">拖卡到高地建塔，挡住沿路来攻的敌兵。</span>
+    </section>
+  </main>
+
+  <dialog id="resultDialog">
+    <div class="result-box">
+      <p class="eyebrow">对局结束</p>
+      <h2 id="resultTitle">胜利</h2>
+      <p id="resultText"></p>
+      <button id="resultRestartBtn" type="button" class="primary-button">再来一局</button>
+    </div>
+  </dialog>
+
+  <script src="./app.js"></script>
+</body>
+</html>
